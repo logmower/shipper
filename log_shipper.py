@@ -165,7 +165,7 @@ async def uploader(coll, queue):
 
 
 class LogFile(object):
-    def __init__(self, loop, coll, queue, path, namespace_name, pod_name, container_name):
+    def __init__(self, loop, coll, queue, path, namespace_name, pod_name, container_name, start=False):
         self.path = path
         self.tail = 0
         self.more_content = asyncio.Event()
@@ -180,6 +180,8 @@ class LogFile(object):
         self.state = "seeking"
         self.done = False
         self.loop = loop
+        if start:
+            self.start()
 
     def start(self):
         self.loop.create_task(self.handler_loop())
@@ -316,7 +318,7 @@ class LogFile(object):
 async def watcher(loop, queue, coll):
     print("Starting watching")
     with Inotify() as inotify:
-        def add_file(path, done=False):
+        def add_file(path, done=False, start=False):
             if path in log_files:
                 log_files[path].done = done
                 return log_files[path]
@@ -337,6 +339,7 @@ async def watcher(loop, queue, coll):
                 return
             lf = log_files[path] = LogFile(loop, coll, queue, path, namespace_name, pod_name, container_name)
             lf.done = done
+            lf.start()
             inotify.add_watch(path, Mask.MODIFY | Mask.CLOSE_WRITE)
             return lf
 
@@ -373,7 +376,7 @@ async def watcher(loop, queue, coll):
             # Events for /var/log/pods
             if event.mask & Mask.CREATE:
                 counter_inotify_events.labels("create").inc()
-                add_file(os.path.realpath(event.path))
+                add_file(os.path.realpath(event.path), start=True)
 
             # Events for /var/log/pods
             elif event.mask & Mask.CLOSE_WRITE:
