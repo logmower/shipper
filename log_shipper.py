@@ -377,8 +377,9 @@ async def watcher(loop, queue, coll):
             elif event.mask & Mask.MODIFY:
                 counter_inotify_events.labels("modify").inc()
                 log_file = log_files.get(str(event.path))
-                assert not log_file.done
-                log_file.poke()
+                if log_file:
+                    # TODO: Count cases where log_file is None
+                    log_file.poke()
             elif event.mask & Mask.IGNORED:
                 counter_inotify_events.labels("ignored").inc()
             else:
