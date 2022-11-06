@@ -330,7 +330,7 @@ async def watcher(loop, queue, coll):
                 return
             lf = log_files[path] = LogFile(loop, coll, queue, path, namespace_name, pod_name, container_name)
             lf.done = done
-            inotify.add_watch(path, Mask.MODIFY | Mask.CLOSE_WRITE | Mask.DELETE_SELF)
+            inotify.add_watch(path, Mask.MODIFY | Mask.CLOSE_WRITE)
             return lf
 
         inotify.add_watch(ROOT, Mask.CREATE | Mask.ONLYDIR)
