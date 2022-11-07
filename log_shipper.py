@@ -277,6 +277,7 @@ class FileTailer(object):
                         break
                     buf = self.buf[:step + 1]
                     self.buf = self.buf[step + 1:]
+                    await asyncio.sleep(0)
                     yield self.offset, len(buf), buf[:-1].decode("utf-8")
                     self.offset += step + 1
                     break
