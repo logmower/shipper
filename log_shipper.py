@@ -258,7 +258,6 @@ class LogFile(object):
         self.loop.create_task(self.handler_loop())
 
     def poke(self):
-        self.tail = self.fh.seek(0, os.SEEK_END)
         self.more_content.set()
 
     def close(self):
@@ -291,9 +290,12 @@ class LogFile(object):
                     break
                 await self.more_content.wait()
                 self.more_content.clear()
+            self.tail = self.fh.seek(0, os.SEEK_END)
+
             assert self.head < self.tail
             self.fh.seek(self.head)
             buf = self.fh.readline()
+            self.head += len(buf)
 
             try:
                 reason = "unicode-encoding"
@@ -314,7 +316,7 @@ class LogFile(object):
                 break
 
             histogram_line_size.observe(len(buf))
-            self.head += len(buf)
+
             record_size += len(buf)
 
             if record_size < args.max_record_size:
