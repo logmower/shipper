@@ -65,6 +65,9 @@ host_info = {
 
 log_files = dict()
 
+gauge_buffer_size = Gauge(
+    "logmower_buffer_size_bytes",
+    "Log files buffered in memory")
 gauge_backlog_size = Gauge(
     "logmower_backlog_size_bytes",
     "Content that is yet to be submitted")
@@ -498,6 +501,7 @@ async def watcher(loop, queue, coll):
 
 @app.route("/metrics")
 async def handler(request):
+    gauge_buffer_size.set(sum([len(j.buf) for j in log_files.values()]))
     gauge_backlog_size.set(sum([j.tail - j.head for j in log_files.values()]))
     c = collections.Counter([j.state for j in log_files.values()])
     for key in ("seeking", "replaying", "watching", "closing"):
