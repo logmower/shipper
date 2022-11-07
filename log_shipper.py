@@ -203,7 +203,8 @@ async def uploader(coll, queue):
             histogram_database_operation_latency.labels("insert-many").observe(time() - then)
         except pymongo.errors.ServerSelectionTimeoutError:
             continue
-        except pymongo.errors.BulkWriteError:
+        except pymongo.errors.BulkWriteError as e:
+            print("Bulk insertion failed:", e)
             counter_bulk_insertions.labels("failed").inc()
             for o in messages:
                 o.pop("_id", None)
