@@ -202,12 +202,14 @@ async def uploader(coll, queue):
         if not messages:
             continue
         try:
-            # TODO: Don't retry submitting messages commit by bulk insert above
             then = time()
             await coll.insert_many(messages)
             histogram_database_operation_latency.labels("insert-many").observe(time() - then)
         except pymongo.errors.ServerSelectionTimeoutError:
             counter_bulk_insertions.labels("timed-out").inc()
+            continue
+        except pymongo.errors.NotPrimaryError:
+            counter_bulk_insertions.labels("not-primary").inc()
             continue
         except pymongo.errors.BulkWriteError as e:
             counter_bulk_insertions.labels("retried-as-singles").inc()
