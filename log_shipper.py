@@ -251,12 +251,14 @@ class FileTailer(object):
         self.path = path
         self.buf = b""
         self.finished = finished
+        self.caughtup = False
         self.more_content = asyncio.Event()
 
     async def __aiter__(self):
         with open(self.path, "rb") as fh:
             while True:
                 if not self.finished and self.head >= self.tail:
+                    self.caughtup = True
                     await self.more_content.wait()
                     self.more_content.clear()
                 self.tail = fh.seek(0, os.SEEK_END)
@@ -322,6 +324,7 @@ class LogFile(FileTailer):
         self.state = "replaying"
         record_offset = self.offset
         async for line_offset, line_size, line in self:
+            self.state = "watching" if self.caughtup else "replaying"
             assert "\n" not in line
             try:
                 reason = "unicode-encoding"
