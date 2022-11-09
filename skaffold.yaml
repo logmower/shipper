@@ -1,0 +1,28 @@
+apiVersion: skaffold/v3alpha1
+kind: Config
+metadata:
+  name: logmower-shipper-prototype
+
+build:
+  artifacts:
+  - image: harbor.k-space.ee/lauri/logmower-shipper-prototype
+    docker:
+      dockerfile: Dockerfile
+
+deploy:
+  kubectl: {}
+
+manifests:
+  rawYaml:
+     - k8s/staging/deployment.yaml
+
+profiles:
+  - name: dev
+    activation:
+      - command: dev
+    build:
+      artifacts:
+        - image: harbor.k-space.ee/lauri/logmower-shipper-prototype
+    manifests:
+      rawYaml:
+        - k8s/dev/deployment.yaml
