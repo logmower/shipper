@@ -439,7 +439,6 @@ async def watcher(queue, coll):
             if path in log_files:
                 log_files[path].finished = finished
                 return log_files[path]
-            print("Adding file: %s" % path)
 
             m = re.match("/var/log/pods/(.*)_(.*)_.*/(.*)/[0-9]+\\.log$", path)
 
@@ -448,13 +447,14 @@ async def watcher(queue, coll):
                 counter_unexpected_filenames.inc()
                 return
             namespace_name, pod_name, container_name = m.groups()
-            if args.namespace and args.namespace == namespace_name:
+            if args.namespace and args.namespace != namespace_name:
+                print("Skipping due to namespace mismatch:", path)
                 return
             for prefix in args.exclude_pod_prefixes:
                 if pod_name.startswith(prefix):
+                    print("Skipping due to pod prefix mismatch:", path)
                     return
-            if args.namespace and namespace_name != args.namespace:
-                return
+            print("Adding file: %s" % path)
             lf = log_files[path] = LogFile(coll, queue, path, namespace_name,
                 pod_name, container_name, start, lookup_offset)
             lf.finished = finished
