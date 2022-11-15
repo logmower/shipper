@@ -381,7 +381,7 @@ class LogFile(object):
                 if args.parse_json and o["message"].startswith("{\""):
                     # TODO: Follow Filebeat hints
                     try:
-                        j = ujson.loads(message)
+                        j = ujson.loads(o["message"])
                     except ujson.JSONDecodeError:
                         counter_heuristic_failures.labels("invalid-json").inc()
                     else:
