@@ -254,7 +254,7 @@ async def uploader(coll, queue):
 
 
 class LogFile(object):
-    def __init__(self, coll, queue, path, namespace_name, pod_name, container_name, start=False, lookup_offset=True):
+    def __init__(self, coll, queue, path, namespace_name, pod_name, container_name, pod_id, start=False, lookup_offset=True):
         self.offset = 0
         self.path = path
         self.buf = b""
@@ -264,6 +264,7 @@ class LogFile(object):
         self.namespace_name = namespace_name
         self.pod_name = pod_name
         self.container_name = container_name
+        self.pod_id = pod_id
         self.coll = coll
         self._state = None
         self.state = "init"
@@ -397,6 +398,7 @@ class LogFile(object):
                     },
                     "namespace": self.namespace_name,
                     "pod": {
+                        "id": self.pod_id,
                         "name": self.pod_name
                     }
                 }
@@ -440,13 +442,13 @@ async def watcher(queue, coll):
                 log_files[path].finished = finished
                 return log_files[path]
 
-            m = re.match("/var/log/pods/(.*)_(.*)_.*/(.*)/[0-9]+\\.log$", path)
+            m = re.match("/var/log/pods/(.*)_(.*)_(.*)/(.*)/[0-9]+\\.log$", path)
 
             if not m:
                 print("Unexpected filename:", path)
                 counter_unexpected_filenames.inc()
                 return
-            namespace_name, pod_name, container_name = m.groups()
+            namespace_name, pod_name, pod_id, container_name = m.groups()
             if args.namespace and args.namespace != namespace_name:
                 print("Skipping due to namespace mismatch:", path)
                 return
@@ -456,7 +458,7 @@ async def watcher(queue, coll):
                     return
             print("Adding file: %s" % path)
             lf = log_files[path] = LogFile(coll, queue, path, namespace_name,
-                pod_name, container_name, start, lookup_offset)
+                pod_name, container_name, pod_id, start, lookup_offset)
             lf.finished = finished
             inotify.add_watch(path, Mask.MODIFY | Mask.CLOSE_WRITE)
             return lf
