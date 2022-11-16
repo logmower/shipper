@@ -2,10 +2,10 @@
 import argparse
 import asyncio
 import collections
+import heuristics
 import os
 import re
 import socket
-import ujson
 import prometheus_async
 import pymongo
 from aiofile import async_open
@@ -130,45 +130,8 @@ histogram_line_size = Histogram(
     buckets=(80, 160, 320, 640, 1280, inf))
 
 
-NORMALIZED_LOG_LEVELS = {
-    # Syslog level emergency (0), should not be used by applications
-    "emerg": "emergency",
-    "panic": "emergency",
-
-    # Syslog level alert (1)
-    "a": "alert",
-
-    # Syslog level critical (2), likely results in program exit
-    "crit": "critical",
-    "fatal": "critical",
-    "f": "critical",
-
-    # Syslog level error (3)
-    "err": "error",
-    "e": "error",
-
-    # Syslog level warning (4)
-    "warn": "warning",
-    "w": "warning",
-
-    # Following log levels should not be enabled by default
-
-    # Syslog level notice (5)
-    "n": "notice",
-
-    # Syslog level informational (6)
-    "informational": "info",
-    "i": "info",
-
-    # Syslog level debug (7)
-    "d": "debug",
-    "d1": "debug",
-    "d2": "debug",
-    "d3": "debug",
-    "d4": "debug",
-    "d5": "debug",
-    "trace": "debug",
-}
+def recursively_default_dict():
+    return collections.defaultdict(recursively_default_dict)
 
 
 async def uploader(coll, queue):
@@ -222,7 +185,7 @@ async def uploader(coll, queue):
         except pymongo.errors.NotPrimaryError:
             counter_bulk_insertions.labels("not-primary").inc()
             continue
-        except pymongo.errors.BulkWriteError as e:
+        except (pymongo.errors.BulkWriteError, OverflowError) as e:
             counter_bulk_insertions.labels("retried-as-singles").inc()
             j = "%s.%s" % (e.__class__.__module__, e.__class__.__name__)
             counter_bulk_insertion_errors.labels(j).inc()
@@ -366,9 +329,9 @@ class LogFile(object):
                     # This is partial message
                     continue
                 assert state == "F", "Unknown line state"
-                o = {}
+                o = recursively_default_dict()
                 o["message"] = message
-                o["log"] = {}
+
                 message = ""
                 record_size = 0
 
@@ -378,19 +341,7 @@ class LogFile(object):
                     continue
 
                 stream = line[36:42].strip()
-                if args.parse_json and o["message"].startswith("{\""):
-                    # TODO: Follow Filebeat hints
-                    try:
-                        j = ujson.loads(o["message"])
-                    except ujson.JSONDecodeError:
-                        counter_heuristic_failures.labels("invalid-json").inc()
-                    else:
-                        # Merge only if parsed JSON message looks like it's
-                        # conforming to ECS schema
-                        if args.merge_top_level and "@timestamp" in j and "message" in j:
-                            o.update(j)
-                        else:
-                            o["json"] = j
+                heuristics.process(o)
 
                 o["kubernetes"] = {
                     "container": {
@@ -411,15 +362,6 @@ class LogFile(object):
                 o["event"] = {
                     "created": event_created
                 }
-
-                if args.normalize_log_level and "level" in o["log"]:
-                    level = o["log"]["level"].strip().lower()
-                    try:
-                        o["log"]["level"] = NORMALIZED_LOG_LEVELS[level]
-                    except KeyError:
-                        counter_heuristic_failures.labels("invalid-log-level").inc()
-                if args.stream_to_log_level and "level" not in o["log"]:
-                    o["log"]["level"] = "error" if stream == "stderr" else "info"
 
                 if "@timestamp" not in o:
                     o["@timestamp"] = o["event"]["created"]
