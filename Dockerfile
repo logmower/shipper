@@ -1,4 +1,4 @@
-FROM harbor.k-space.ee/k-space/microservice-base
+FROM codemowers/python
 RUN pip3 install asyncinotify ujson prometheus-async[aiohttp]
 WORKDIR /app
 ADD heuristics.py /app/heuristics.py
