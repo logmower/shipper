@@ -33,12 +33,25 @@ class DecodeStringRegex():
     """
     @classmethod
     def match(cls, record):
+        assert cls.PATTERN.pattern.endswith("$")
         return cls.PATTERN.match(record["message"])
 
     @classmethod
     def extract(cls, record, m):
         for key, value in m.groupdict().items():
             record[key] = value
+
+
+class StripAnsiEscapes():
+    PATTERN = re.compile(r'(\x9B|\x1B\[)[0-?]*[ -/]*[@-~]')
+
+    @classmethod
+    def match(cls, record):
+        return cls.PATTERN.search(record["message"])
+
+    @classmethod
+    def extract(cls, record, m):
+        record["message"] = cls.PATTERN.sub('', record["message"])
 
 
 class DecodeStringGoLogger(DecodeStringRegex):
@@ -57,7 +70,7 @@ class DecodeStringGoLogger(DecodeStringRegex):
 
 class DecodeStringCLF(DecodeStringRegex):
     PATTERN = re.compile("(\\S+) \\S+ (\\S+) \\[([^\\]]+)\\] "
-        "\"([A-Z]+) ([^ \"]+)? HTTP/[0-9.]+\" ([0-9]{3}) ([0-9]+|-)")
+        "\"([A-Z]+) ([^ \"]+)? HTTP/[0-9.]+\" ([0-9]{3}) ([0-9]+|-)$")
 
     @classmethod
     def extract(cls, record, m):
@@ -173,6 +186,7 @@ class BestEffortTopLevelMerge():
 
 
 string_decoders = (
+    StripAnsiEscapes,
     DecodeStringJSON,
     DecodeStringCLF,
     DecodeStringGoLogger
