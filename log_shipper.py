@@ -1,4 +1,4 @@
-#!/usr/local/bin/python3
+#!/usr/local/bin/python3 -OO
 import argparse
 import asyncio
 import collections
