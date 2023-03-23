@@ -126,7 +126,12 @@ histogram_bulk_submission_latency = Histogram(
     buckets=(0.1, 0.2, 0.5, 1, 5, 10, 50))
 histogram_line_size = Histogram(
     "logmower_line_size_bytes",
-    "Log file line size in sizes",
+    "Log file line in bytes",
+    buckets=(80, 160, 320, 640, 1280, inf))
+histogram_record_size = Histogram(
+    "logmower_record_size_bytes",
+    "Log record size in bytes",
+    ["record_namespace"],
     buckets=(80, 160, 320, 640, 1280, inf))
 
 
@@ -331,6 +336,8 @@ class LogFile(object):
                 assert state == "F", "Unknown line state"
                 o = recursively_default_dict()
                 o["message"] = message
+
+                histogram_record_size.labels(self.namespace_name).observe(record_size)
 
                 message = ""
                 record_size = 0
